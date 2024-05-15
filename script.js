@@ -1,8 +1,7 @@
 var board = document.getElementById('gameArea');
 var dotHolder = document.getElementById(`dotHolder`);
 var percentFull = 0.5;
-var triangleLength = 220;
-var totalDepth = 6;
+var triangleLength = 200;
 var yIterator = 0;
 var xIterator = 0;
 var nodeGrid = {};
@@ -11,8 +10,75 @@ var nodeID = 0;
 var nodeGraph = {};
 var fullNodeGraph = {};
 var rand;
-var dotsAtDepth = {"0":2,"1":3,"2":4,"3":3,"4":4,"5":3,"6":2,"7":0};
 var allInputs = document.getElementsByClassName('inputs');
+
+
+var gridOffset;
+var randomize = false;
+var dotsAtDepth;
+var totalDepth;
+var longestChain;
+	//example state
+	// var dotsAtDepth = {
+	// 	"0":[1,0],
+	// 	"1":[1,0,0],
+	// 	"2":[0,1,0],
+	// 	"3":[0,2,0],
+	// 	"4":[],
+	// 	"5":[0,2,0],
+	// 	"6":[0,1,0],
+	// 	"7":[1,0,0],
+	// 	"8":[1,0]
+	// };
+
+//First State
+
+	// var gridOffset = false;
+	// var dotsAtDepth = {
+	// 	"0":[1,0],
+	// 	"1":[1,0,0],
+	// 	"2":[0,1,0],
+	// 	"3":['0',2,0],
+	// 	"4":[0,1,'0'],
+	// 	"5":[1,0,0],
+	// 	"6":[1,0]
+	// };
+
+//End First State
+
+//Second State
+	
+	// var gridOffset = false;
+	// var dotsAtDepth = {
+	// 	"0":[1,0],
+	// 	"1":[1,0,0],
+	// 	"2":[0,1,0],
+	// 	"3":['0',2,0],
+	// 	"4":[0,1,0],
+	// 	"5":[1,0,'0'],
+	// 	"6":[1,0]
+	// };
+
+//End Second State
+
+//Third State
+	// var gridOffset = true;
+	// var randomize = false;
+	// var dotsAtDepth = {
+	// 	"0":[1,0,'0'],
+	// 	"1":['0','0',0],
+	// 	"2":[0,0,0,'0'],
+	// 	"3":[0,0,0],
+	// 	"4":[0,0,'0',0],
+	// 	"5":[0,0,'0'],
+	// 	"6":[1,0,0],
+	// };
+
+	// var totalDepth = 6;
+	// var dotsAtDepth = {"0":2,"1":3,"2":4,"3":3,"4":4,"5":3,"6":2,"7":0};
+
+//End Third State
+
 Array.from(allInputs).forEach(function(singleInput){
   singleInput.addEventListener("keyup", function(event) {
     // Number 13 is the "Enter" key on the keyboard
@@ -24,23 +90,103 @@ Array.from(allInputs).forEach(function(singleInput){
 })
 
 window.onload = (event) => {
-
+	const queryString = window.location.search;
+	if(queryString.replace("?","") == 2) {
+		gridOffset = false;
+		dotsAtDepth = {
+			"0":[1,0],
+			"1":[1,0,0],
+			"2":[0,1,0],
+			"3":['0',2,0],
+			"4":[0,1,0],
+			"5":[1,0,'0'],
+			"6":[1,0]
+		};
+	} else if(queryString.replace("?","") == 3) {
+		gridOffset = true;
+		randomize = false;
+		dotsAtDepth = {
+			"0":[1,0,'0'],
+			"1":['0','0',0],
+			"2":[0,0,0,'0'],
+			"3":[0,0,0],
+			"4":[0,0,'0',0],
+			"5":[0,0,'0'],
+			"6":[1,0,0],
+		};
+	} else if(queryString.replace("?","") == `random`) {
+		gridOffset = true;
+		randomize = true;
+		dotsAtDepth = {
+			"0":[1,0,0],
+			"1":[0,0,0],
+			"2":[0,0,0,0],
+			"3":[0,0,0],
+			"4":[0,0,0,0],
+			"5":[0,0,0],
+			"6":[1,0,0],
+		};
+	} else {
+		gridOffset = false;
+		dotsAtDepth = {
+			"0":[1,0],
+			"1":[1,0,0],
+			"2":[0,1,0],
+			"3":['0',2,0],
+			"4":[0,1,'0'],
+			"5":[1,0,0],
+			"6":[1,0]
+		};
+	}
+	totalDepth = Object.keys(dotsAtDepth).length - 1;
+	let allArrays = Object.values(dotsAtDepth);
+	longestChain = allArrays.sort((a,b) => {
+		return a.reduce((accumulator, c) => {
+			if(c == 0) {
+				c++;
+			}
+			return accumulator + c;
+		}, 0) - b.reduce((accumulator, d) => {
+			if(d == 0) {
+				d++;
+			}
+			return accumulator + d;
+		}, 0);
+	})[allArrays.length-1].reduce((accumulator, e) => {
+			if(e == 0) {
+				e++;
+			}
+			return accumulator + e;
+		}, 0);
+	setSeed();
 }
 
 function setSeed() {
-	let seedString = document.getElementById('gameSeed').value;
+	let seedString;
+	//let seedString = document.getElementById('gameSeed').value;
+	if(!seedString) {
+		seedString = randomColor();
+	}
 	var seedHash = cyrb128(seedString);
 	rand = sfc32(seedHash[0], seedHash[1], seedHash[2], seedHash[3]);
 
 	//starting code
-	generateDots();
+	Array.from(document.querySelectorAll(`.gridFill`)).forEach((element) => {
+		element.delete();
+	});
+	generateDots(gridOffset);
 	generateLines();
 	Array.from(document.querySelectorAll(`.node`)).forEach((element) => {
 		let connectedLines = overlayCheck(element, `line`);
 		element.connectedLines = connectedLines;
 		element.addEventListener(`click`, sendSignal);
 	});
-	generateGoalNodes();
+	// predeterminedGoalNodes([6]);
+	//predeterminedGoalNodes([10, 2]);
+	if(randomize) {
+		generateGoalNodes(6);
+	}
+
 	document.addEventListener("mousedown", mouseClick);
 }
 
@@ -63,7 +209,7 @@ function mouseClick(event) {
 function setStrength() {
 	let strength = document.getElementById('strength').value;
 	resetGrid();
-	Array.from(document.querySelectorAll(`.line`)).forEach((element) => {
+	Array.from(document.querySelectorAll(`.gridButton`)).forEach((element) => {
 		element.removeEventListener(`click`, toggleLine);
 	});
 	Array.from(document.querySelectorAll(`.node`)).forEach((element) => {
@@ -74,9 +220,28 @@ function setStrength() {
 
 function sendSignal(event) {
 	//let strength = Number(document.getElementById('strength').value);
+	if(event.target.style.backgroundColor == `rgb(250, 224, 31)`) {
+		Array.from(document.querySelectorAll(`.node`)).forEach((element) => {
+			// element.removeEventListener(`click`, sendSignal);
+			element.visited = false;
+			element.style.backgroundColor = `#7C638E`;
+			element.style.border = `2px solid #f5f5f5`;
+			element.style.boxShadow = ``;
+		});
+		Array.from(document.querySelectorAll(`.line`)).forEach((element) => {
+			element.style.backgroundColor = `#424D59`;
+			element.style.border = ``;
+		});	
+	Array.from(document.querySelectorAll(`.goal`)).forEach((element) => {
+		element.style.boxShadow = `0 0 20px #0078AB`;
+		element.style.border = `2px solid #0078AB`;
+		element.classList.remove(`completed`);
+	});	
+		return;
+	}
 	let strength = 6;
 	resetGrid();
-	Array.from(document.querySelectorAll(`.line`)).forEach((element) => {
+	Array.from(document.querySelectorAll(`.gridButton`)).forEach((element) => {
 		element.removeEventListener(`click`, toggleLine);
 	});
 	if(strength == NaN) {
@@ -95,7 +260,7 @@ function sendSignal(event) {
 		} else {
 			console.log(`failure`);
 		}
-		Array.from(document.querySelectorAll(`.line`)).forEach((element) => {
+		Array.from(document.querySelectorAll(`.gridButton`)).forEach((element) => {
 			element.addEventListener(`click`, toggleLine);
 		});
 		// Array.from(document.querySelectorAll(`.node`)).forEach((element) => {
@@ -126,43 +291,67 @@ function pushSignal(node, strength) {
 		let pathToGoal = findShortestPath(nodeGraph, node.id, chosenGoal[0]);
 		let hitGoal = document.getElementById(`${chosenGoal[0]}`);
 		if (strength == pathToGoal.path.length - 1) {
+			//success state
 			hitGoal.style.backgroundColor = `#FAE01F`;
 			for(let i = 0; i < pathToGoal.path.length-1; i++) {
 				let lineIDArray = [pathToGoal.path[i], pathToGoal.path[i+1]];
 				lineIDArray = lineIDArray.sort(function (a, b) {  return a - b;  });
 				let lineID = `${lineIDArray[0]},${lineIDArray[1]}`;
 				let line = document.getElementById(`${lineID}`);
-				line.style.backgroundColor = `#FAE01F`;
-				line.style.border = `2px solid #7C638E`;
+				line.children[0].style.backgroundColor = `#FAE01F`;
+				line.children[0].style.border = `2px solid #7C638E`;
 			}
 			hitGoal.classList.add(`completed`);
-			pushSignal(hitGoal, strength - 1);
+			let touchedNodes = Array.from(document.querySelectorAll(`.completed`));
+			let goalNodes = Array.from(document.querySelectorAll(`.goal`));
+			if(!arraysEqual(touchedNodes, goalNodes)) {
+				pushSignal(hitGoal, strength - 1);
+			}
 		}
 		else if (strength < pathToGoal.path.length) {
+			//failure state too weak
 			let wrongNode;
 			for(let i = 0; i < strength; i++) {
 				let lineIDArray = [pathToGoal.path[i], pathToGoal.path[i+1]];
 				lineIDArray = lineIDArray.sort(function (a, b) {  return a - b;  });
 				let lineID = `${lineIDArray[0]},${lineIDArray[1]}`;
 				let line = document.getElementById(`${lineID}`);
-				line.style.backgroundColor = `#FAE01F`;
-				line.style.border = `2px solid #7C638E`;
+				line.children[0].style.backgroundColor = `#FAE01F`;
+				line.children[0].style.border = `2px solid #7C638E`;
 				wrongNode = document.getElementById(`${pathToGoal.path[i+1]}`);
 			} 
-			wrongNode.style.boxShadow = `0 0 20px #E0403C`;
-			wrongNode.style.border = `2px solid #E0403C`;
+			// wrongNode.style.boxShadow = `0 0 20px #E0403C`;
+			// wrongNode.style.border = `2px solid #E0403C`;
 		}
 		else {
+			//failure state too strong, carry onward til strength gone
+			 hitGoal.style.boxShadow = `0 0 20px #E0403C`;
+			 hitGoal.style.border = `2px solid #E0403C`;
 			for(let i = 0; i < pathToGoal.path.length-1; i++) {
 				let lineIDArray = [pathToGoal.path[i], pathToGoal.path[i+1]];
 				lineIDArray = lineIDArray.sort(function (a, b) {  return a - b;  });
 				let lineID = `${lineIDArray[0]},${lineIDArray[1]}`;
 				let line = document.getElementById(`${lineID}`);
-				line.style.backgroundColor = `#FAE01F`;
-				line.style.border = `2px solid #7C638E`;
-			} 
-			hitGoal.style.boxShadow = `0 0 20px #E0403C`;
-			hitGoal.style.border = `2px solid #E0403C`;
+				line.children[0].style.backgroundColor = `#FAE01F`;
+				line.children[0].style.border = `2px solid #7C638E`;
+			}
+			let nextNode = hitGoal;
+			for(let i = 0; i < (strength - (pathToGoal.path.length-1)); i++) {
+				let connectedLines = overlayCheck(nextNode, `line`);
+				let nextLine = null;
+				for(const line of connectedLines) {
+					if((line.style.opacity == 1 && line.style.backgroundColor != `rgb(250, 224, 31)`) && !nextLine) {
+							nextLine = line;
+					}
+				}
+				if(!nextLine) {
+					return true;
+				}
+				nextLine.style.backgroundColor = `#FAE01F`;
+				nextLine.style.border = `2px solid #7C638E`;
+				nextNodeID = nextLine.parentElement.id.replace(nextNode.id,"").replace(",","");
+				nextNode = document.getElementById(`${nextNodeID}`);
+			}
 		}
 	}
 	return true;
@@ -328,41 +517,44 @@ let findShortestPath = (graph, startNode, endNode) => {
    return results;
 };
 
-function rotateNode(event) {
-	let connectedLines = Array.from(event.target.connectedLines);
-	let yoinkedLine = connectedLines.pop();
-	connectedLines.splice(2, 0, yoinkedLine);
-	let lastLineStyle = null;
-	let firstLine = null;
-	for (const line of connectedLines) {
-		if (!lastLineStyle) {
-			firstLine = line;
-		}
-		let tempStyle = line.style.visibility;
-		line.style.visibility = lastLineStyle;
-		lastLineStyle = tempStyle;
-		let adjacentNodes = overlayCheck(line, `node`);
-		if(line.style.visibility != `hidden`) {
-			nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = 1;
-			nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = 1;
-		} else {
-			nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = Infinity;
-			nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = Infinity;
-		}
-	}
-	firstLine.style.visibility = lastLineStyle;
-	let adjacentNodes = overlayCheck(firstLine, `node`);
-	if(firstLine.style.visibility != `hidden`) {
-		nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = 1;
-		nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = 1;
-	} else {
-		nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = Infinity;
-		nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = Infinity;
-	}
-}
+// function rotateNode(event) {
+// 	let connectedLines = Array.from(event.target.connectedLines);
+// 	let yoinkedLine = connectedLines.pop();
+// 	connectedLines.splice(2, 0, yoinkedLine);
+// 	let lastLineStyle = null;
+// 	let firstLine = null;
+// 	for (const line of connectedLines) {
+// 		if (!lastLineStyle) {
+// 			firstLine = line;
+// 		}
+// 		let tempStyle = line.style.visibility;
+// 		line.style.visibility = lastLineStyle;
+// 		lastLineStyle = tempStyle;
+// 		let adjacentNodes = overlayCheck(line, `node`);
+// 		if(line.style.visibility != `hidden`) {
+// 			nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = 1;
+// 			nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = 1;
+// 		} else {
+// 			nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = Infinity;
+// 			nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = Infinity;
+// 		}
+// 	}
+// 	firstLine.style.visibility = lastLineStyle;
+// 	let adjacentNodes = overlayCheck(firstLine, `node`);
+// 	if(firstLine.style.visibility != `hidden`) {
+// 		nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = 1;
+// 		nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = 1;
+// 	} else {
+// 		nodeGraph[adjacentNodes[0].id][adjacentNodes[1].id] = Infinity;
+// 		nodeGraph[adjacentNodes[1].id][adjacentNodes[0].id] = Infinity;
+// 	}
+// }
 
 function toggleLine(event) {
-	let line = event.target;
+	let line = event.target.children[0];
+	if(!line) {
+		line = event.target;
+	}
 	let adjacentNodes = overlayCheck(line, `node`);
 	if(line.style.opacity == `1`) {
 		line.style.opacity = `0.1`;
@@ -375,16 +567,21 @@ function toggleLine(event) {
 	}
 }
 
-function generateGoalNodes(){
-	let min = 3;
-	let max = 5;
-	let randomStrength = Math.floor(rand() * (max - min + 1) + min);
-	randomStrength = 6;
+// function predeterminedGoalNodes(goalNodeIDs) {
+// 	for (let nodeID of goalNodeIDs) {
+// 		let node = document.getElementById(`${nodeID}`);
+// 		node.style.boxShadow = `0 0 20px #0078AB`;
+// 		node.style.border = `2px solid #0078AB`;
+// 		node.classList.add(`goal`);		
+// 	}	
+// }
+
+function generateGoalNodes(strength){
 	let keys = Object.keys(fullNodeGraph);
 	let startingNode = keys[Math.floor(keys.length * rand())];
 	let allDistances = shortestPath(fullNodeGraph, startingNode);
 	let goalNodeIDs = [startingNode];
-	for (i = 1; i < randomStrength; i++) {
+	for (i = 1; i < strength; i++) {
 		var filtered = Object.keys(allDistances).reduce(function (filtered, key) {
 		    if (allDistances[key] <= i && allDistances[key] != 0 && !goalNodeIDs.includes(key)) {
 		    	filtered[key] = allDistances[key];
@@ -431,9 +628,10 @@ function getNextRight(x1, y1) {
 function createNode(){
 	var node = document.createElement(`div`);
 	node.classList.add(`node`);
+	node.classList.add(`gridFill`);
 	node.id = nodeID;
 	//DEBUG CODE
-		node.innerHTML = `${node.id}`;
+		//node.innerHTML = `${node.id}`;
 	//END DEBUG
 	nodeID++;
 	dotHolder.appendChild(node);
@@ -441,87 +639,159 @@ function createNode(){
 	return node;
 }
 
-function generateDots(startNode) {
-	if(!startNode) {
-		startNode = createNode();
-		let triangleInfo = getNextRight(0,0);
-		let offsetLeft = window.innerWidth / 2 - startNode.clientWidth/2;
-		if(dotsAtDepth[0] % 2 == 0) {
-			//even
-			offsetLeft += triangleInfo[2] + (triangleInfo[2] * 2) * (Math.floor(dotsAtDepth[0]/2) - 1);
-		} else {
-			offsetLeft += (triangleInfo[2] * 2) * (Math.floor(dotsAtDepth[0]/2));
-		}
-		startNode.style.top = `50px`;
-		startNode.style.left = offsetLeft + `px`;
-		let startNodeCenter = [Math.round(startNode.offsetLeft + startNode.clientWidth / 2), Math.round(startNode.offsetTop + startNode.clientHeight / 2)];
-		for(let i = 1; i < dotsAtDepth[depth]; i++) {
-			let left = [Math.round(startNodeCenter[1] - startNode.clientWidth / 2), Math.round(startNodeCenter[0] - startNode.clientWidth / 2  - 2 * triangleInfo[2] * (i))];
-			nodeGrid[[left[1] + startNode.clientWidth / 2,left[0] + startNode.clientWidth / 2]] = [`a`];
-			var leftNode = createNode();
-			leftNode.style.top = left[0] + `px`;
-			leftNode.style.left = left[1] + `px`;
-		}
-		depth++;
-	}
+function generateDots(lastOffset) {
 	if (depth <= totalDepth) {
-		let startNodeCenter = [Math.round(startNode.offsetLeft + startNode.clientWidth / 2), Math.round(startNode.offsetTop + startNode.clientHeight / 2)];
-		let nextNodeCoords = getNextRight(startNodeCenter[0],startNodeCenter[1]);
-		let rightNodeCoords = [Math.round(nextNodeCoords[0] - startNode.clientWidth / 2), Math.round(nextNodeCoords[1] - startNode.clientHeight / 2)];
-		let depthAdjuster = 0;
-		nodeGrid[startNodeCenter] = [];
-
-		if(!(dotsAtDepth[depth] <= dotsAtDepth[depth-1])) {
-			var rightNode = createNode();
-			rightNode.style.top = rightNodeCoords[1] + `px`;
-			rightNode.style.left = rightNodeCoords[0] + `px`;
-			dotsAtDepth[depth]--;
-			depthAdjuster++;
-		}
-		let lastNode = null;
-		for(let i = 1; i <= dotsAtDepth[depth]; i++) {
-			let left = [Math.round(nextNodeCoords[1] - startNode.clientWidth / 2), Math.round(Number(nextNodeCoords[0]) - startNode.clientWidth / 2  - 2 * nextNodeCoords[2] * (i))];
-			nodeGrid[[left[1] + startNode.clientWidth / 2,left[0] + startNode.clientWidth / 2]] = [`a`];
-			var leftNode = createNode();
-			leftNode.style.top = left[0] + `px`;
-			leftNode.style.left = left[1] + `px`;
-			if((dotsAtDepth[depth]+depthAdjuster <= dotsAtDepth[depth-1]) && i == dotsAtDepth[depth]) {
-				rightNode = lastNode;
+		if(dotsAtDepth[depth].length) {
+			let triangleInfo = getNextRight(0,0);
+			let offsetLeft = (window.innerWidth - 2 * triangleInfo[2] * (longestChain-1))/2;
+			let offsetTop = (window.innerHeight - triangleInfo[1] * (totalDepth+1))/2;
+			if(!lastOffset) {
+				//offset from Center
+				offsetLeft += triangleInfo[2];
 			}
-			if((dotsAtDepth[depth]+depthAdjuster <= dotsAtDepth[depth-1]) && i == 1) {
-				lastNode = leftNode;		
-			}
+			let positionInRow = 0;
+			for(const node of dotsAtDepth[depth]) {
+				if(node == 0) {
+					let newNode = createNode();
+					newNode.style.top = `${offsetTop + triangleInfo[1] * depth}px`;
+					newNode.style.left = `${offsetLeft - newNode.clientWidth/2 + 2 * triangleInfo[2] * (positionInRow)}px`;
+					nodeCenter = [Math.round(newNode.offsetLeft + newNode.clientWidth / 2), Math.round(newNode.offsetTop + newNode.clientHeight / 2)];
+					nodeGrid[nodeCenter] = [];
+					positionInRow++;
+					if(typeof node == `string`) {
+						newNode.style.boxShadow = `0 0 20px #0078AB`;
+						newNode.style.border = `2px solid #0078AB`;
+						newNode.classList.add(`goal`);		
+					}
+				} else {
+					positionInRow += node;
+				}
+			}	
 		}
 		depth++;
-		generateDots(rightNode);
+		generateDots(!lastOffset);
 	}
 }
+
+// function generateDots(lastOffset) {
+// 	if (depth <= totalDepth) {
+// 		if(dotsAtDepth[depth] > 0) {
+// 			let triangleInfo = getNextRight(0,0);
+// 			let centralNode = createNode();
+// 			let offsetLeft = window.innerWidth / 2 - centralNode.clientWidth/2;
+// 			let offsetTop = 75;
+// 			if(!lastOffset) {
+// 				//offset from Center
+// 				offsetLeft += triangleInfo[2];
+// 			}
+// 			centralNode.style.top = `${offsetTop + triangleInfo[1] * depth}px`;
+// 			centralNode.style.left = offsetLeft + `px`;
+// 			nodeCenter = [Math.round(centralNode.offsetLeft + centralNode.clientWidth / 2), Math.round(centralNode.offsetTop + centralNode.clientHeight / 2)];
+// 			nodeGrid[nodeCenter] = [];
+// 			for(let i = 0; i < dotsAtDepth[depth]-1; i++) {
+// 				let newNode = createNode();
+// 				newNode.style.top = `${offsetTop + triangleInfo[1] * depth}px`;
+// 				if(i%2 == 0) {
+// 					newNode.style.left = `${offsetLeft - triangleInfo[2] * (i+2)}px`;				
+// 				} else {
+// 					newNode.style.left = `${offsetLeft + triangleInfo[2] * (i+1)}px`;				
+// 				}
+// 				nodeCenter = [Math.round(newNode.offsetLeft + newNode.clientWidth / 2), Math.round(newNode.offsetTop + newNode.clientHeight / 2)];
+// 				nodeGrid[nodeCenter] = [];
+// 			}			
+// 		}
+// 		depth++;
+// 		generateDots(!lastOffset);
+// 	}
+// }
+
+// function generateDots(startNode) {
+// 	if(!startNode) {
+// 		startNode = createNode();
+// 		let triangleInfo = getNextRight(0,0);
+// 		let offsetLeft = window.innerWidth / 2 - startNode.clientWidth/2;
+// 		if(dotsAtDepth[0] % 2 == 0) {
+// 			//even
+// 			offsetLeft += triangleInfo[2] + (triangleInfo[2] * 2) * (Math.floor(dotsAtDepth[0]/2) - 1);
+// 		} else {
+// 			offsetLeft += (triangleInfo[2] * 2) * (Math.floor(dotsAtDepth[0]/2));
+// 		}
+// 		startNode.style.top = `50px`;
+// 		startNode.style.left = offsetLeft + `px`;
+// 		let startNodeCenter = [Math.round(startNode.offsetLeft + startNode.clientWidth / 2), Math.round(startNode.offsetTop + startNode.clientHeight / 2)];
+// 		for(let i = 1; i < dotsAtDepth[depth]; i++) {
+// 			let left = [Math.round(startNodeCenter[1] - startNode.clientWidth / 2), Math.round(startNodeCenter[0] - startNode.clientWidth / 2  - 2 * triangleInfo[2] * (i))];
+// 			nodeGrid[[left[1] + startNode.clientWidth / 2,left[0] + startNode.clientWidth / 2]] = [`a`];
+// 			var leftNode = createNode();
+// 			leftNode.style.top = left[0] + `px`;
+// 			leftNode.style.left = left[1] + `px`;
+// 		}
+// 		depth++;
+// 	}
+// 	if (depth <= totalDepth) {
+// 		let startNodeCenter = [Math.round(startNode.offsetLeft + startNode.clientWidth / 2), Math.round(startNode.offsetTop + startNode.clientHeight / 2)];
+// 		let nextNodeCoords = getNextRight(startNodeCenter[0],startNodeCenter[1]);
+// 		let rightNodeCoords = [Math.round(nextNodeCoords[0] - startNode.clientWidth / 2), Math.round(nextNodeCoords[1] - startNode.clientHeight / 2)];
+// 		let depthAdjuster = 0;
+// 		nodeGrid[startNodeCenter] = [];
+
+// 		if(!(dotsAtDepth[depth] <= dotsAtDepth[depth-1])) {
+// 			var rightNode = createNode();
+// 			rightNode.style.top = rightNodeCoords[1] + `px`;
+// 			rightNode.style.left = rightNodeCoords[0] + `px`;
+// 			dotsAtDepth[depth]--;
+// 			depthAdjuster++;
+// 		}
+// 		let lastNode = null;
+// 		for(let i = 1; i <= dotsAtDepth[depth]; i++) {
+// 			let left = [Math.round(nextNodeCoords[1] - startNode.clientWidth / 2), Math.round(Number(nextNodeCoords[0]) - startNode.clientWidth / 2  - 2 * nextNodeCoords[2] * (i))];
+// 			nodeGrid[[left[1] + startNode.clientWidth / 2,left[0] + startNode.clientWidth / 2]] = [`a`];
+// 			var leftNode = createNode();
+// 			leftNode.style.top = left[0] + `px`;
+// 			leftNode.style.left = left[1] + `px`;
+// 			if((dotsAtDepth[depth]+depthAdjuster <= dotsAtDepth[depth-1]) && i == dotsAtDepth[depth]) {
+// 				rightNode = lastNode;
+// 			}
+// 			if((dotsAtDepth[depth]+depthAdjuster <= dotsAtDepth[depth-1]) && i == 1) {
+// 				lastNode = leftNode;		
+// 			}
+// 		}
+// 		depth++;
+// 		generateDots(rightNode);
+// 	}
+// }
 
 function generateLines() {
 	let lineID = 0;
 	for (const property in nodeGrid) {
 		let propertyArray = property.split(",");
 		for(let i = -1; i <= 1; i ++) {
+			const button = document.createElement(`button`);
+			button.classList.add(`gridButton`);
+			button.classList.add(`gridFill`);
+			dotHolder.appendChild(button);
+			button.id = lineID;
+			lineID++;
+			button.style.height = triangleLength + `px`;
+			button.style.width = triangleLength / 5 + `px`;
+			button.style.top = `${propertyArray[1]}px`;
+			button.style.left = `${(propertyArray[0] - button.style.width.replace("px","")/2.5)}px`;
+			button.style.transform = `rotate(${(i)*60}deg)`;
+			button.addEventListener(`click`, toggleLine);
 			const line = document.createElement(`div`);
 			line.classList.add(`line`);
-			dotHolder.appendChild(line);
-			line.id = lineID;
-			lineID++;
-			line.style.height = triangleLength + `px`;
-			line.style.width = triangleLength / 20 + `px`;
-			line.style.top = `${propertyArray[1]}px`;
-			line.style.left = `${(propertyArray[0])}px`;
-			line.style.transform = `rotate(${(i)*60}deg)`;
 			line.style.backgroundColor = `#424D59`;
 			line.style.opacity = `0.1`;
-			line.addEventListener(`click`, toggleLine);
-			let adjacentNodes = overlayCheck(line, `node`);
+			line.style.height = triangleLength + `px`;
+			line.style.width = triangleLength / 18 + `px`;
+			button.appendChild(line);
+			let adjacentNodes = overlayCheck(button, `node`);
 			if(adjacentNodes.length != 2) {
-				line.remove();
+				button.remove();
 			} else {
 				let lineIDArray = [adjacentNodes[0].id, adjacentNodes[1].id];
 				lineIDArray = lineIDArray.sort(function (a, b) {  return a - b;  });
-				line.id = `${lineIDArray[0]},${lineIDArray[1]}`;
+				button.id = `${lineIDArray[0]},${lineIDArray[1]}`;
 				if(!nodeGraph[adjacentNodes[0].id]) {
 					nodeGraph[adjacentNodes[0].id] = {};
 				}
@@ -630,11 +900,13 @@ function arraysEqual(a, b) {
   if (a == null || b == null) return false;
   if (a.length !== b.length) return false;
 
-  a.sort();
-  b.sort();
+  let aNew = a;
+  let bNew = b;
+  aNew.sort();
+  bNew.sort();
 
-  for (var i = 0; i < a.length; ++i) {
-    if (a[i] !== b[i]) return false;
+  for (var i = 0; i < aNew.length; ++i) {
+    if (aNew[i] !== bNew[i]) return false;
   }
   return true;
 }
